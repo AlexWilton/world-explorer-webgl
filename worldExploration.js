@@ -10,10 +10,11 @@ function WorldExplorer(){
         });
 
         ////models without textures:
-        //var objNames = [ "computer", "fishtank"];
+        //var objNames = ["computer", "fishtank"];
         //objNames.forEach(function(name){
-        //    dataLoader.addOBJmodel("demo/models/"+name+"/Model.obj");
+        //    dataLoader.addOBJmodel("models/"+name+"/Model.obj");
         //});
+        //dataLoader.addOBJmodel("models/computer/Model.obj");
 
 		// textures
 		//dataLoader.addTexture("demo/textures/gaza.jpg");
@@ -23,15 +24,6 @@ function WorldExplorer(){
 	}
 	
 	this.initScene = function(){
-		//// monkey
-		//sceneObjects[0].addTexture(textures[0]);
-		//sceneObjects[0].scale(0.5);
-		//sceneObjects[0].transY = 2;
-		//sceneObjects[0].transZ = -5;
-		//sceneObjects[0].update = function(elapsedTime){
-		//	this.rotY += degToRad((App.monkeySpeed * elapsedTime) / 1000.0);
-		//}
-
         //chess
         var chess = sceneObjects[0];
         //chess.addTexture(textures[0]);
@@ -39,7 +31,7 @@ function WorldExplorer(){
         chess.rotY += degToRad(180);
         chess.scale(10);
         chess.transX = -2;
-        chess.transY = 3;
+        chess.transY = 4;
         chess.transZ = -8;
         chess.update = function(elapsedTime){
             this.rotY += degToRad((App.monkeySpeed * elapsedTime) / 1000.0);
@@ -50,7 +42,7 @@ function WorldExplorer(){
         //kitchen.addTexture(textures[1]);
         kitchen.rotX += degToRad(180);
         kitchen.transX = -2;
-        kitchen.transY = 3;
+        kitchen.transY = 4;
         kitchen.transZ = -1;
 
         //tutorial room
@@ -58,7 +50,7 @@ function WorldExplorer(){
         //tutorialRoom.addTexture(textures[2]);
         tutorialRoom.rotX += degToRad(180);
         tutorialRoom.transX = -15;
-        tutorialRoom.transY = 6;
+        tutorialRoom.transY = 7;
         tutorialRoom.transZ = -5;
     }
 	
