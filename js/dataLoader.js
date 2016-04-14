@@ -1,104 +1,76 @@
 var dataLoader = new DataLoader();
 
+var objCache = {};
 
 function DataLoader() {
-
-    // list of URLs to the unloaded objects (as files)
-    this.textureList = [];
     this.modelOBJlist = [];
-
-    // number of unloaded objects
-    this.textureCount = 0;
     this.modelOBJcount = 0;
-
-    // index of loaded objects (points to next object to be loaded
-    //	in the object list)
-    this.textureIndex = 0;
     this.modelOBJindex = 0;
 
 
-    // add a texture to the unloaded items list
-    this.addTexture = function (url) {
-        this.textureList.push(url);
-        this.textureCount += 1;
-    }
-
-
     // add an OBJ (wavefront) model to the unloaded items list
-    this.addOBJmodel = function (url) {
-        this.modelOBJlist.push(url);
+    this.addOBJmodel = function (obj) {
+        this.modelOBJlist.push(obj);
         this.modelOBJcount += 1;
-    }
+    };
 
 
-    // call to load all data that is currently on the loading wait list
-    this.loadAll = function () {
-        this.loadModelsThenTextures();
-    }
 
-    // load step 1: load the models
-    this.loadModelsThenTextures = function () {
-        // if all models have been loaded, continue to loading textures
-        if (this.modelOBJindex >= this.modelOBJcount) return;
-        console.log(dataLoader.modelOBJindex + " " + dataLoader.modelOBJcount);
-        // load and process the next OBJ file from the list;
-        //	(OBJ file gets translated to a "graphicsObject" and pushed
-        //	to the "sceneObjects" list)
+    this.loadModels = function () {
+        if (this.modelOBJindex >= this.modelOBJcount) return; //stop recursively calling when last model loaded.
+
+        var objName = this.modelOBJlist[this.modelOBJindex].name;
         var request = new XMLHttpRequest();
-        request.open("GET", this.modelOBJlist[this.modelOBJindex]);
-        request.dataURL = this.modelOBJlist[this.modelOBJindex];
+        request.open("GET", this.modelOBJlist[this.modelOBJindex].url);
+        request.dataURL = this.modelOBJlist[this.modelOBJindex].url;
         this.modelOBJindex += 1;
         var lastModelToLoad = this.modelOBJindex >= this.modelOBJcount;
         request.onreadystatechange = function () {
             if (request.readyState == 4) {
                 try {
-                    dataLoader.makeOBJobject(request.responseText, request.dataURL, lastModelToLoad);
-                    dataLoader.loadModelsThenTextures();
-                } catch (e) {
-                    console.log(e);
-                }
-
+                    dataLoader.makeOBJobject(objName, request.responseText, request.dataURL, lastModelToLoad);
+                    dataLoader.loadModels(); //recursive call
+                } catch (e) {/*console.log(e);*/}
             }
         }
-        request.send();
-    }
 
-    // load step X: reset variables and finish loading
-    this.finish = function () {
-        console.log('All Models loaded.');
-        this.textureList = [];
+        //try and load from cache if possible.
+        if(objCache[objName] !== undefined){
+            try {
+                dataLoader.makeOBJobject(objName, "", request.dataURL, lastModelToLoad); //use cache if possible
+                dataLoader.loadModels(); //recursive call
+            } catch (e) {
+                console.log(e);
+            }
+        }else {
+            request.send();
+        }
+    };
+
+    this.finishModelLoading = function () {
         this.modelOBJlist = [];
-        this.textureIndex = 0;
         this.modelOBJindex = 0;
-        this.onload();
-    }
-
-
-    // OVERRIDE: function that is called when ALL objects are fully loaded,
-    //	regardless of whether or not some failed.
-    // This function should be defined to execute any necessary action
-    //	after everything has been loaded.
-    this.onload = function () {}
+        startApp();
+    };
 }
 
 
+dataLoader.makeOBJobject = function (name, objFileData, dataURL, lastModelToLoad) {
+    //load from cache where possible
+    if(objCache[name] !== undefined){
+        loadedObjs.push(objCache[name]);
+        if(lastModelToLoad) dataLoader.finishModelLoading();
+        return;
+    }
 
-/*** MAKE OBJ OBJECT ***/
-// Translates raw OBJ file data (text) into a graphicsObject and pushes it as the
-//	next item in the sceneObjects list.
-// If .obj file contains texture data, textures will be searched for in the same
-//	directory in which the .obj file is located.
-// WARNING: Textures must be Javascript readable (i.e. JPEG, PNG, GIF, etc.),
-//	otherwise they will fail to load.
-dataLoader.makeOBJobject = function (objFileData, dataURL, lastModelToLoad) {
     // find path to file name
     var fnameIndex = dataURL.lastIndexOf("/");
     var path = dataURL.substring(0, fnameIndex);
-
     var mtlFilepath = ""; //path to a mtl file if found
 
     // graphicsObject object that will contain the GL model data
     var obj = new GraphicsObject();
+    obj.name = name;
 
     // split the data into an array of separate lines
     var lines = objFileData.split("\n");
@@ -120,84 +92,61 @@ dataLoader.makeOBJobject = function (objFileData, dataURL, lastModelToLoad) {
 
     // read file data line-by-line
     for (var i in lines) {
-        // get line values one by one
-        var vals = lines[i].replace(/^\s+/, "").split(/\s+/);
+        var linePart = lines[i].replace(/^\s+/, "").split(/\s+/);
 
-        // if empty line, just continue
-        if (vals.length == 0)
-            continue;
+        if (linePart.length == 0) continue;
 
-        // if vertex position item, push the verticies to temp array
-        if (vals[0] == "v") {
-            vertexList.push([vals[1], vals[2], vals[3]]);
+        // vertex position item
+        if (linePart[0] == "v") {
+            vertexList.push([linePart[1], linePart[2], linePart[3]]);
         }
 
-        // if texture coordinate item, push the coordinates to temp array
-        else if (vals[0] == "vt") {
-            textureList.push([vals[1], vals[2], vals[3]]);
+        // texture coordinate item
+        else if (linePart[0] == "vt") {
+            textureList.push([linePart[1], linePart[2], linePart[3]]);
         }
 
-        // if normal coordinate item, push the coordinates to temp array
-        else if (vals[0] == "vn") {
-            normalsList.push([vals[1], vals[2], vals[3]]);
+        // normal coordinate item
+        else if (linePart[0] == "vn") {
+            normalsList.push([linePart[1], linePart[2], linePart[3]]);
         }
 
-        // if face, push the appropriate indexed values to main buffers
-        else if (vals[0] == "f") {
-            // f v1/t1/n1 v2/t2/n2 v3/t3/n3
-            // vertex #1
-            //var coord_1 = vals[1].split("/");
-            [vals[1], vals[2], vals[3]].forEach(function(faceCoord){
+        // face (most common form: "f v1/t1/n1 v2/t2/n2 v3/t3/n3")
+        else if (linePart[0] == "f") {
+            [linePart[1], linePart[2], linePart[3]].forEach(function(faceCoord){
                 dataLoader.processFaceCoord(faceCoord, vertexPositions, vertexList, vertexTextureCoords, textureList, vertexNormalCoords, normalsList);
             });
 
-            // add 3 to face vertex count
             faceVertexCount += 3;
         }
 
-        else if (vals[0] == "mtllib"){
-            if(vals[1].endsWith(".mtl")) {
-                mtlFilepath = vals[1];
+        else if (linePart[0] == "mtllib"){
+            if(linePart[1].endsWith(".mtl")) {
+                mtlFilepath = linePart[1];
             }
         }
 
-        // if usemtl (use material) line appears, load textures after
-        //	the faces have been added on using vertex counts
-        else if (vals[0] == "usemtl") {
+        else if (linePart[0] == "usemtl") {
             useTexture = true;
         }
     }
 
-    if(useTexture){
-
-        //first get texture filepath
+        if(!useTexture) throw "No texture detected for model";
         $.ajax({"url" : path + "/" + mtlFilepath}).success(function(mtlFile){
             var textureFilepath = extractImageFilePathFromMtlFile(mtlFile);
             obj.loadTextureFromURL(path + "/" + textureFilepath, faceVertexCount, 0);
 
-            // add all vertices to the graphicsObject
             obj.initPositionBuffer(GL, vertexPositions);
             obj.initTextureBuffer(GL, vertexTextureCoords);
             obj.initNormalBuffer(GL, vertexNormalCoords);
             if (indexVertexCoords.length != 0) obj.initIndexBuffer(GL, indexVertexCoords);
 
-            // push the object to the sceneObjects list
-            sceneObjects.push(obj);
-            if(lastModelToLoad) dataLoader.finish();
+            // push the object to the loadedObjs list
+            loadedObjs.push(obj);
+            if(lastModelToLoad) dataLoader.finishModelLoading();
+            objCache[name] = obj;
+            App.initScene();
         });
-    }else{
-        $.ajax({"url" : dataURL}).always(function(r){
-        // add all vertices to the graphicsObject
-        obj.initPositionBuffer(GL, vertexPositions);
-        obj.initTextureBuffer(GL, vertexTextureCoords);
-        obj.initNormalBuffer(GL, vertexNormalCoords);
-        if (indexVertexCoords.length != 0) obj.initIndexBuffer(GL, indexVertexCoords);
-
-        // push the object to the sceneObjects list
-        sceneObjects.push(obj);
-        if(lastModelToLoad) dataLoader.finish();
-        });
-    }
 };
 
 dataLoader.processFaceCoord = function(faceCoord, vertexPositions, vertexList,
@@ -205,6 +154,7 @@ dataLoader.processFaceCoord = function(faceCoord, vertexPositions, vertexList,
                                         vertexNormalCoords, normalsList){
     //typically:  "f v/t/n"
     var parts = faceCoord.split("/");
+    if(parts.length == 1) return;
     if(parts.length == 2) parts.push(parts[0]); //in cases such as "f v/t", copy first for third: "f v/t/v"
 
     // push x,y,z vertex values of this coordinate

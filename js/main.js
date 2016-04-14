@@ -1,42 +1,22 @@
-/* FILE: main.js
- * Contains the main function (called to start the GL application),
- *	all of the global variables needed for the application,
- *	as well as the basic initialize functions to start up the program.
- */
-
-
-/*** GLOBAL VARIABLES ***/
-
-// webGL context variable
 var GL;
+var shaderProgram;
 
-// 2D graphics context
-var context2D;
-
-// matricies and matrix stack
 var mvMatrix = mat4.create();
 var mvMatrixStack = [];
 var pMatrix = mat4.create();
 
-// OpenGL (GLSL) shader program
-var shaderProgram;
-
-// list of all textures used in the application
-var textures = [];
-
-// animation variables
 var lastTime = 0;
 
-// graphical objects list (displayed in the scene)
-var sceneObjects = [];
+var loadedObjs = [];
+var showWireFrames = false;
 
-// user input variables
+//user input
 var keysPressed = [];
 var mousePressed = false;
 var lastMouseX = 0;
 var lastMouseY = 0;
 
-// camera view variables
+//camera
 var viewRotateX = 0;
 var viewRotateY = 0;
 var viewRotateZ = 0;
@@ -44,143 +24,66 @@ var viewPosX = 0;
 var viewPosY = 0;
 var viewPosZ = 0;
 
-// lighting variables
+//lighting
 var directionalLights = [];
-var ambientR = 0.0;
-var ambientG = 0.0;
-var ambientB = 0.0;
+var ambientR = 1.0;
+var ambientG = 1.0;
+var ambientB = 1.0;
 var backgroundR = 0.0;
 var backgroundG = 0.0;
 var backgroundB = 0.0;
 
-// WorldExplorer object contains all of the init functions as well as
-//	all of the application-level upkeep as the main system updates them.
 var App;
 
-
-/*** main GL function - application starts here ***/
 function main() {
-    // create the main application
     App = new WorldExplorer();
 
-    // return value: keep track of error (0 = success)
-    var retval = 0;
-
-    // attempt to get the WebGL context (GL) from the canvas
     var canvas = document.getElementById("gl-canvas");
-    retval = initGL(canvas);
-    if (retval != 0) {
-        //alert("initGL failed - check Browser compatibility");
-        return 2;
-    }
-
-    // attempt to load the shader scripts
-    retval = loadShaders();
-    if (retval != 0) {
-        //alert("loadShaders failed - a shaders were not initialized correctly");
-        return 3;
-    }
-
-    // run setup and loader
-    App.selectModels();
-    dataLoader.onload = function () {
-        startApp();
-    }
-    dataLoader.loadAll();
-
-    return 0;
+    initGL(canvas);
+    loadShaders();
+    App.prepareToLoadModels();
+    dataLoader.loadModels();
 }
 
-// called after dataLoader handles loading all HTML requests:
-//	this function finishes app initialization and starts the GL program
 function startApp() {
     //remove loading text
     document.getElementById("loadingText").innerHTML = "";
 
-    // initialize the scene values
     App.initScene();
     App.initCamera();
     App.initLighting();
 
-    // set background color to black, and enable 3D depth test
     GL.clearColor(backgroundR, backgroundG, backgroundB, 1.0);
     GL.enable(GL.DEPTH_TEST);
 
-    // set up listeners for key events
+    //enable interaction with user
     document.onkeydown = keyDownFunc;
     document.onkeyup = keyUpFunc;
-
-    // set up listeners for mouse events
     document.getElementById("gl-canvas").onmousedown = mouseDownFunc;
     document.onmouseup = mouseUpFunc;
     document.onmousemove = mouseMoveFunc;
-
-    // run the animation
     frame();
 }
 
-
-// handle key push down events: toggle that key in the array as TRUE
 function keyDownFunc(event) {
     keysPressed[event.keyCode] = true;
-
     if (event.keyCode == 32 ||	// SPACE
         event.keyCode == 38 ||	// UP
         event.keyCode == 40 ||	// DOWN
         event.keyCode == 37 ||	// LEFT
         event.keyCode == 39		// RIGHT
-    ) {
-        event.preventDefault();
-    }
+    ) event.preventDefault();
+
 }
 
-
-// handle key release events: toggle that key in the array as FALSE
 function keyUpFunc(event) {
     keysPressed[event.keyCode] = false;
 }
 
-// handle mouse down events: set mousePressed as true, and register first
-//	"last position" of mouse
 function mouseDownFunc(event) {
     mousePressed = true;
     lastMouseX = event.clientX;
     lastMouseY = event.clientY;
-}
-
-// DEFAULT KEY INPUT handler (call from App class to use standard controls)
-function defaultInputHandler() {
-    // move forward (W or UP arrow keys)
-    if (keysPressed[87] || keysPressed[38]) {
-        viewPosZ += 0.05 * Math.cos(viewRotateY);
-        viewPosX -= 0.05 * Math.sin(viewRotateY);
-    }
-
-    // move backwards (S or DOWN arrow keys)
-    if (keysPressed[83] || keysPressed[40]) {
-        viewPosZ -= 0.05 * Math.cos(viewRotateY);
-        viewPosX += 0.05 * Math.sin(viewRotateY);
-    }
-
-    // rotate left (LEFT arrow key)
-    if (keysPressed[37])
-        viewRotateY -= 0.02;
-
-    // rotate right (RIGHT arrow key)
-    if (keysPressed[39])
-        viewRotateY += 0.02;
-
-    // move/strafe left (A or Q keys)
-    if (keysPressed[65] || keysPressed[81]) {
-        viewPosZ += 0.05 * Math.sin(viewRotateY);
-        viewPosX += 0.05 * Math.cos(viewRotateY);
-    }
-
-    // move/strafe right (D or E keys)
-    if (keysPressed[68] || keysPressed[69]) {
-        viewPosZ -= 0.05 * Math.sin(viewRotateY);
-        viewPosX -= 0.05 * Math.cos(viewRotateY);
-    }
 }
 
 
@@ -329,8 +232,8 @@ function update() {
         // update the WorldExplorer object
         App.update(elapsed);
         // update all scene objects
-        for (var i = 0; i < sceneObjects.length; i++) {
-            sceneObjects[i].update(elapsed);
+        for (var i = 0; i < loadedObjs.length; i++) {
+            loadedObjs[i].update(elapsed);
         }
     }
     lastTime = timeNow;
@@ -362,6 +265,8 @@ function renderScene() {
     mat4.translate(mvMatrix, [viewPosX, viewPosY, viewPosZ]);
 
 
+
+
     /*** LIGHTING ***/
         // TODO - necessary? OR MOVE IT! toggle lighting enabled
     GL.uniform1i(shaderProgram.useLightingUniform, true);
@@ -378,8 +283,8 @@ function renderScene() {
 
     /*** DRAW SCENE OBJECTS ***/
     // draw all individual elements to the screen
-    for (var i = 0; i < sceneObjects.length; i++) {
-        sceneObjects[i].render(GL);
+    for (var i = 0; i < loadedObjs.length; i++) {
+        loadedObjs[i].render(GL);
     }
 }
 
@@ -409,3 +314,6 @@ function mvPopMatrix() {
 function degToRad(degrees) {
     return degrees * Math.PI / 180;
 }
+
+
+$(document).ready(main);

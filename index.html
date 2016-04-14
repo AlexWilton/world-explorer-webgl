@@ -5,49 +5,29 @@
     <title>World View and Navigation Practical - 120006063</title>
     <!--<script type="text/javascript" src="js/jquery-1.8.2.min.js"></script>-->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
-    <!-- WebGL Scripts -->
-    <script type="text/javascript" src="js/gl-matrix-min.js"></script>
-    <script type="text/javascript" src="js/webgl-utils.js"></script>
-    <script type="text/javascript" src="js/appClass.js"></script>
-    <script type="text/javascript" src="js/lights.js"></script>
-    <script type="text/javascript" src="js/textureObject.js"></script>
-    <script type="text/javascript" src="js/graphicsObject.js"></script>
-    <script type="text/javascript" src="js/dataLoader.js"></script>
-    <script type="text/javascript" src="js/main.js"></script>
-    <script type="text/javascript" src="worldExploration.js"></script>
-
-    <script id="shader-fs" type="x-shader/x-fragment">
-	precision mediump float;
-	varying vec2 vTextureCoord;
-	varying vec3 vLightWeighting;
-	uniform float uAlpha;
-	uniform sampler2D uSampler;
-	
-	void main(void){
-		vec4 textureColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
-		gl_FragColor = vec4(textureColor.rgb * vLightWeighting, textureColor.a * uAlpha);
-	}
-    </script>
     <script id="shader-vs" type="x-shader/x-vertex">
 	attribute vec3 aVertexPosition;
 	attribute vec3 aVertexNormal;
 	attribute vec2 aTextureCoord;
-	
+
 	uniform mat4 uMVMatrix;
 	uniform mat4 uPMatrix;
 	uniform mat3 uNMatrix;
-	
+
+	uniform bool uUseLighting;
+
 	uniform vec3 uAmbientColor;
 	uniform vec3 uLightingDirection;
 	uniform vec3 uDirectionalColor;
-	uniform bool uUseLighting;
+
 	varying vec2 vTextureCoord;
 	varying vec3 vLightWeighting;
-	
+
 	void main(void){
 		gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
 		vTextureCoord = aTextureCoord;
-		
+
+
 		if(!uUseLighting) {
 			vLightWeighting = vec3(1.0, 1.0, 1.0);
 		} else {
@@ -58,9 +38,34 @@
 	}
 
     </script>
+    <script id="shader-fs" type="x-shader/x-fragment">
+	precision mediump float;
+	uniform bool uUseTexture;
+	uniform float uAlpha;
+	uniform sampler2D uSampler;
+
+	varying vec2 vTextureCoord;
+	varying vec3 vLightWeighting;
+	varying vec4 vColor;
+
+	void main(void){
+        vec4 textureColor = texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+        gl_FragColor = vec4(textureColor.rgb * vLightWeighting, textureColor.a * uAlpha);
+	}
+    </script>
+    <!-- WebGL Scripts -->
+    <script type="text/javascript" src="js/gl-matrix-min.js"></script>
+    <script type="text/javascript" src="js/webgl-utils.js"></script>
+    <script type="text/javascript" src="js/lights.js"></script>
+    <script type="text/javascript" src="js/textureObject.js"></script>
+    <script type="text/javascript" src="js/graphicsObject.js"></script>
+    <script type="text/javascript" src="js/dataLoader.js"></script>
+    <script type="text/javascript" src="js/main.js"></script>
+    <script type="text/javascript" src="worldExploration.js"></script>
     <link rel="icon" href="favicon.ico" type="image/x-icon"/>
     <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css"
           integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+    <link rel="stylesheet" href="css/bootstrap-switch.css"/>
     <link rel="stylesheet" type="text/css" href="css/custom.css">
 </head>
 <body>
@@ -80,11 +85,41 @@
         </div>
     </div>
     <div class="row">
-        <div class="col-md-10 col-md-offset-1 text-center">
+        <div class="col-md-8 text-center">
             <canvas id="gl-canvas" class="center-block" width="800" height="500">
                 Oops ... your browser doesn't support the HTML5 canvas element
             </canvas>
             <small id="loadingText">Please be patience as loading large obj files can take some time.</small>
+            <div class="text-left col-md-offset-1">
+                <h3 class="text-left">Key Movement Controls</h3>
+                <strong>W</strong> and <strong>Up Arrow</strong> to move forward.<br/>
+                <strong>S</strong> and <strong>Down Arrow</strong> to move backward.<br/>
+                <strong>A</strong> to move left. <strong>D</strong> to move right.<br/>
+                <strong>SPACE</strong> to move vertically upwards. <strong>X</strong> to vertically downwards.<br/>
+                <strong>Left Arrow</strong> to rotate left. <strong>Right Arrow</strong> to rotate right.<br/>
+                <strong>Mouse Drag</strong> to rotate camera direction.<br/>
+                <strong>Esc</strong> to reset camera to starting position.<br/>
+            </div>
+        </div>
+        <div class="col-md-3 col-md-offset-1 text-left">
+            <h3>Interactive Controls</h3>
+            <label><h4>Chess</h4></label>
+            <div class="pull-right"><input role="loadModel" type="checkbox" name="chess" checked></div><br/>
+            <label><h4>Kitchen</h4></label>
+            <div class="pull-right"><input role="loadModel" type="checkbox" name="kitchen" checked></div><br/>
+            <label><h4>Tutorial Room</h4></label>
+            <div class="pull-right"><input role="loadModel" type="checkbox" name="tutorialRoom" unchecked></div><br/>
+            <label><h4>Banana</h4></label>
+            <div class="pull-right"><input role="loadModel" type="checkbox" name="banana" unchecked></div><br/>
+            <label><h4>Cat</h4></label>
+            <div class="pull-right"><input role="loadModel" type="checkbox" name="cat" unchecked></div><br/>
+            <label><h4>Gun</h4></label>
+            <div class="pull-right"><input role="loadModel" type="checkbox" name="gun" unchecked></div>
+            <br/>
+            <br/>
+            <label><h4>Wireframes</h4></label>
+            <div class="pull-right"><input type="checkbox" name="showWireFrame" unchecked></div><br/>
+
         </div>
     </div>
 </div>
@@ -92,61 +127,8 @@
 <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"
         integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS"
         crossorigin="anonymous"></script>
+<script src="js/bootstrap-switch.js"></script>
+<script src="js/userControls.js"></script>
 <br/>
 </body>
 </html>
-
-
-<!--<body>-->
-
-<!--<div id="container">-->
-
-<!--<div id=header></div>-->
-<!---->
-<!--<div id="content">-->
-
-<!--<div id="demo_content" style="display:none; position:relative;">-->
-<!--<p><canvas id="screen" width="800" height="500"-->
-<!--style="background-color:white; border:4px solid black;"></canvas></p>-->
-<!--<p><div id="loading_text" style="display:none;">-->
-<!--<center>-->
-<!--<font size=6>Loading Model Data...</font><br />-->
-<!--<font size=5>This may take a minute.</font>-->
-<!--</center>-->
-<!--</div></p>-->
-
-<!--<p>-->
-<!--Use the <b>W-A-S-D</b> keys or the <b>arrow keys</b> to move, and use the-->
-<!--<b>mouse</b> (left-click and drag) to look around.-->
-<!--<br />-->
-<!--You can also press <b>SPACE</b> to go up, and <b>X</b> to go down. Press-->
-<!--<b>ESC</b> to return to the initial position.-->
-<!--&lt;!&ndash;br /><br />-->
-<!--<form><input type=checkbox checked="yes">-->
-<!--Allow my browser and OS information to be collected</form>-->
-<!--<small>-->
-<!--This application does automatic error logging. If an issue is detected, the error number-->
-<!--will be logged into a database along with your browser version and operating system.-->
-<!--I will use this information to try to debug and fix the issue as soon as possible.-->
-<!--</small&ndash;&gt;-->
-<!--</p>-->
-<!--<p>-->
-<!--Time of day (lighting):-->
-<!--&nbsp;-->
-<!--<input type="radio" name="time_sel" onclick="App.setTimeOfDay('day');"-->
-<!--id="day_sel" CHECKED>Day-->
-<!--&nbsp;-->
-<!--<input type="radio" name="time_sel" onclick="App.setTimeOfDay('sunset');">Sunset-->
-<!--&nbsp;-->
-<!--<input type="radio" name="time_sel" onclick="App.setTimeOfDay('moon');">Moonlight-->
-<!--&nbsp;-->
-<!--<input type="radio" name="time_sel" onclick="App.setTimeOfDay('night');">Night (darkness)-->
-<!--</p>-->
-<!--<p>-->
-<!--Hold down <b>1</b> to make the monkey head spin left,-->
-<!--and <b>2</b> to make it spin right.-->
-<!--</p>-->
-<!--</div><br />-->
-<!--</body>-->
-
-<!--</html>-->
